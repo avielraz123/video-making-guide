@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Video Making Guide</title>
+  <meta name="description" content="Learn to make good videos, and how to make them with Claude Code: TTS voices, animation tools, an animation-principles playground and a practical workflow.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231c1b18'/%3E%3Ccircle cx='16' cy='17' r='6' fill='%23ff5e52'/%3E%3C/svg%3E">
+  <script>
+    /* apply the saved theme before first paint */
+    try { var t = localStorage.getItem("vg:theme"); if (t === '"dark"' || t === '"light"') document.documentElement.setAttribute("data-theme", JSON.parse(t)); } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#app" onclick="event.preventDefault(); var m=document.getElementById('app'); m.focus(); m.scrollIntoView();">Skip to content</a>
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#/" aria-label="Video Making Guide, home">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-text">Video Making Guide<small>with Claude Code</small></span>
+      </a>
+      <nav class="main-nav" id="main-nav" aria-label="Main">
+        <ul>
+          <li><a href="#/guide" data-nav="guide">Guide</a></li>
+          <li><a href="#/voices" data-nav="voices">Voices</a></li>
+          <li><a href="#/best-voices" data-nav="best-voices">Best AI voices</a></li>
+          <li><a href="#/animations" data-nav="animations">Animations</a></li>
+          <li><a href="#/playground" data-nav="playground">Playground</a></li>
+          <li><a href="#/claude" data-nav="claude">Working with Claude</a></li>
+        </ul>
+      </nav>
+      <button class="icon-btn theme-btn" id="theme-toggle" type="button" aria-label="Toggle theme">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <button class="icon-btn menu-btn" id="menu-toggle" type="button" aria-label="Menu" aria-controls="main-nav" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main id="app" tabindex="-1">
+    <div class="page"><p class="muted">Loading&hellip; (this site needs JavaScript)</p></div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="filmstrip" aria-hidden="true"></div>
+    <div class="footer-inner">
+      <p>Video Making Guide: learn to make videos, and to make them with Claude Code.</p>
+      <p><a href="https://github.com/avielraz123/video-making-guide" target="_blank" rel="noopener noreferrer">Source on GitHub &#8599;</a></p>
+    </div>
+  </footer>
+
+  <noscript><p style="padding:16px">This guide is an interactive page and needs JavaScript enabled.</p></noscript>
+
+  <!-- data (missing files are fine: pages show a "coming soon" state) -->
+  <script src="js/data/voices.js"></script>
+  <script src="js/data/animations.js"></script>
+  <script src="js/data/guide.js"></script>
+  <script src="js/data/workflow.js"></script>
+  <script src="js/data/best-voices.js"></script>
+  <!-- core -->
+  <script src="js/core.js"></script>
+  <script src="js/highlight.js"></script>
+  <!-- playground demos -->
+  <script src="js/demos/motion-lib.js"></script>
+  <script src="js/demos/easing.js"></script>
+  <script src="js/demos/stagger.js"></script>
+  <script src="js/demos/kinetic.js"></script>
+  <script src="js/demos/transitions.js"></script>
+  <script src="js/demos/safe-areas.js"></script>
+  <script src="js/demos/captions.js"></script>
+  <script src="js/demos/hierarchy.js"></script>
+  <!-- pages -->
+  <script src="js/page-home.js"></script>
+  <script src="js/page-guide.js"></script>
+  <script src="js/page-voices.js"></script>
+  <script src="js/page-animations.js"></script>
+  <script src="js/page-playground.js"></script>
+  <script src="js/page-claude.js"></script>
+  <script src="js/page-best-voices.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

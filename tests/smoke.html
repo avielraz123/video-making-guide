@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Smoke test: Video Making Guide</title>
+  <!-- resolve every relative path against the site root, like index.html -->
+  <base href="../">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    #smoke { font: 14px/1.5 ui-monospace, Consolas, monospace; padding: 16px; background: #111; color: #eee; }
+    #smoke .pass { color: #5bd07c; } #smoke .fail { color: #ff7b6e; font-weight: 700; }
+    #summary { font-size: 20px; margin: 0 0 8px; }
+  </style>
+</head>
+<body>
+  <!--
+    Usage (headless Edge):
+      msedge --headless --disable-gpu --allow-file-access-from-files --virtual-time-budget=30000 --dump-dom "file:///.../tests/smoke.html"
+    Query options:
+      ?data=fixture (default)  use tests/fixtures/*.fixture.js
+      ?data=real               use js/data/voices.js + js/data/animations.js (whatever exists)
+      ?data=none               no voice/animation data: checks graceful "coming soon" states
+  -->
+  <section id="smoke" aria-label="Smoke test results">
+    <h1 id="summary" data-status="RUNNING">RUNNING</h1>
+    <div id="log"></div>
+  </section>
+
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" href="#/">Video Making Guide</a>
+      <nav class="main-nav" id="main-nav" aria-label="Main"><ul>
+        <li><a href="#/guide" data-nav="guide">Guide</a></li>
+        <li><a href="#/voices" data-nav="voices">Voices</a></li>
+        <li><a href="#/best-voices" data-nav="best-voices">Best AI voices</a></li>
+        <li><a href="#/animations" data-nav="animations">Animations</a></li>
+        <li><a href="#/playground" data-nav="playground">Playground</a></li>
+        <li><a href="#/claude" data-nav="claude">Working with Claude</a></li>
+      </ul></nav>
+      <button class="icon-btn theme-btn" id="theme-toggle" type="button" aria-label="Toggle theme">T</button>
+      <button class="icon-btn menu-btn" id="menu-toggle" type="button" aria-label="Menu" aria-expanded="false">M</button>
+    </div>
+  </header>
+  <main id="app" tabindex="-1"></main>
+
+  <script>
+  (function () {
+    "use strict";
+    window.VG_NO_AUTOSTART = true;
+    var mode = (location.search.match(/data=(\w+)/) || [])[1] || "fixture";
+    var errors = [];
+    window.addEventListener("error", function (e) {
+      // resource errors (missing audio/video/script) are expected; only count JS errors
+      if (e.error || (e.message && !e.target.src)) errors.push("JS error: " + (e.message || e.error));
+    }, true);
+    window.addEventListener("unhandledrejection", function (e) { errors.push("Unhandled rejection: " + (e.reason && e.reason.message || e.reason)); });
+    var origErr = console.error;
+    console.error = function () { errors.push("console.error: " + Array.prototype.join.call(arguments, " ")); origErr.apply(console, arguments); };
+
+    var data = mode === "real" ? ["js/data/voices.js", "js/data/animations.js"]
+      : mode === "none" ? [] : ["tests/fixtures/voices.fixture.js", "tests/fixtures/animations.fixture.js"];
+    // keep in sync with index.html
+    var scripts = data.concat([
+      "js/data/guide.js", "js/data/workflow.js", "js/data/best-voices.js",
+      "js/core.js", "js/highlight.js",
+      "js/demos/motion-lib.js", "js/demos/easing.js", "js/demos/stagger.js", "js/demos/kinetic.js",
+      "js/demos/transitions.js", "js/demos/safe-areas.js", "js/demos/captions.js", "js/demos/hierarchy.js",
+      "js/page-home.js", "js/page-guide.js", "js/page-voices.js", "js/page-animations.js",
+      "js/page-playground.js", "js/page-claude.js", "js/page-best-voices.js", "js/app.js"
+    ]);
+    var loadFailures = [];
+    var pending = scripts.length;
+    scripts.forEach(function (src) {
+      var s = document.createElement("script");
+      s.src = src; s.async = false;
+      s.onload = done;
+      s.onerror = function () { if (!/js\/data\/(voices|animations)\.js$/.test(src)) loadFailures.push(src); done(); };
+      document.body.appendChild(s);
+    });
+    // ?view=<route> : no tests, just show that route with the chosen data (used for screenshots)
+    var view = (location.search.match(/view=([^&]+)/) || [])[1];
+    function done() {
+      if (--pending !== 0) return;
+      if (view) {
+        document.getElementById("smoke").hidden = true;
+        var theme = (location.search.match(/theme=(\w+)/) || [])[1];
+        if (theme) document.documentElement.setAttribute("data-theme", theme);
+        VG.app.start(); VG.app.render(decodeURIComponent(view));
+        return;
+      }
+      run().catch(function (e) { fail("runner crashed: " + (e && e.stack || e)); finish(); }); }
+
+    var results = [];
+    function log(ok, msg) { results.push({ ok: ok, msg: msg }); var d = document.createElement("div"); d.className = ok ? "pass" : "fail"; d.textContent = (ok ? "PASS " : "FAIL ") + msg; document.getElementById("log").appendChild(d); }
+    function pass(m) { log(true, m); } function fail(m) { log(false, m); }
+    function check(cond, msg) { log(!!cond, msg); return !!cond; }
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+    function $(s) { return document.querySelector(s); }
+    function $$(s) { return Array.prototype.slice.call(document.querySelectorAll(s)); }
+    function count(sel) { return $$("#app " + sel).length; }
+
+    function visit(hash, expects) {
+      var before = errors.length;
+      VG.app.lastError = null;
+      var ok = true;
+      try { VG.app.render(hash); } catch (e) { ok = false; fail(hash + " threw: " + e.message); }
+      if (VG.app.lastError) { ok = false; fail(hash + " page error: " + VG.app.lastError.message); }
+      (expects || []).forEach(function (x) {
+        var n = count(x[0]);
+        var good = typeof x[1] === "number" ? n === x[1] : x[1] === "+" ? n >= 1 : x[1] === 0 ? n === 0 : n >= 1;
+        if (!good) ok = false;
+        log(good, hash + "  " + x[0] + " -> " + n + (typeof x[1] === "number" ? " (want " + x[1] + ")" : ""));
+      });
+      if (errors.length > before) { ok = false; fail(hash + " produced errors: " + errors.slice(before).join(" | ")); }
+      check(!!$("#app h1"), hash + "  has an h1");
+      return ok;
+    }
+
+    async function run() {
+      check(loadFailures.length === 0, "all scripts loaded" + (loadFailures.length ? ": missing " + loadFailures.join(", ") : ""));
+      check(typeof VG === "object" && VG.app && VG.pages, "VG.app exists");
+      VG.app.start();
+      var fx = mode === "fixture", none = mode === "none";
+
+      visit("#/", [[".hero", "+"], [".pipe-step", 4], [".stack-pick", 6], [".section-card", 6]]);
+      visit("#/guide", [[".chapter-card", (VG.guide.chapters || []).length]]);
+      check(VG.guide.chapters.length >= 8, "guide has >= 8 chapters (" + VG.guide.chapters.length + ")");
+      VG.guide.chapters.forEach(function (c) { visit("#/guide/" + c.id, [[".prose", 1], [".pager", 1]]); });
+      visit("#/guide/script", [["#script-timer", 1], [".sentence-table tr", "+"]]);
+      visit("#/guide/no-such-chapter", [[".notice", 1]]);
+
+      // script timer
+      VG.app.render("#/guide/script");
+      var ta = $("#timer-text");
+      ta.value = "One two three four five six seven. Eight nine ten.";
+      ta.dispatchEvent(new Event("input"));
+      await sleep(300);
+      var stats = $$("#script-timer .stat b").map(function (b) { return b.textContent; });
+      check(stats[1] === "10" && stats[2] === "2", "script timer counts 10 words / 2 sentences (got " + stats.join(", ") + ")");
+      check(/^0:0\d/.test(stats[0]), "script timer estimates a length (" + stats[0] + ")");
+
+      // checklist
+      VG.app.render("#/guide/checklist");
+      var cb = $("#app .checklist-ui input");
+      if (cb) { var wasChecked = cb.checked; cb.click(); check(/of \d+ done/.test($("#app .checklist-wrap p").textContent), "checklist progress updates"); if (cb.checked !== wasChecked) cb.click(); }
+      else fail("checklist checkbox missing");
+
+      // voices
+      if (fx) {
+        visit("#/voices", [[".engine-card", 4], [".sample-row", 7], [".compare", 1], [".compare-pick label", 3], [".callout a[href='#/best-voices']", 1]]);
+        check(count(".engine-card a[href='https://example.com/samples']") === 1, "paid engine shows official samples link");
+        var langSel = $("#f-lang"); langSel.value = "he"; langSel.dispatchEvent(new Event("change"));
+        check(count(".sample-row") === 2, "language filter he -> 2 samples (" + count(".sample-row") + ")");
+        check(!!$("#app .sample-row .s-text[dir=rtl]"), "Hebrew sentence rendered RTL");
+        langSel.value = "all"; langSel.dispatchEvent(new Event("change"));
+        var maleChip = $$("#app .toolbar .chip").filter(function (c) { return c.textContent === "male"; })[0];
+        if (maleChip) { maleChip.click(); check(count(".sample-row") === 2, "tag filter male -> 2 samples (" + count(".sample-row") + ")"); maleChip.click(); }
+        var clone = $("#f-clone"); clone.click();
+        check(count(".sample-row") === 1, "cloning filter -> 1 sample (" + count(".sample-row") + ")"); clone.click();
+        var kindSel = $("#f-kind"); kindSel.value = "online-free"; kindSel.dispatchEvent(new Event("change"));
+        check(count(".sample-row") === 3, "kind filter online-free -> 3 samples (" + count(".sample-row") + ")");
+        kindSel.value = "all"; kindSel.dispatchEvent(new Event("change"));
+        // play a sample (file is missing on purpose; must not throw)
+        var pb = $("#app .sample-row .play-btn"); pb.click(); await sleep(400);
+        // compare mode
+        $$("#app .compare-pick input")[0].click();
+        $$("#app .compare-pick input")[1].click(); // the list re-renders after each pick
+        check(count(".cq-item") === 2, "compare queue shows 2 voices");
+        $$("#app .compare .btn-primary")[0].click();
+        await sleep(200);
+        check(/Playing|couldn't load|Done/.test($("#app .compare > p.small").textContent), "compare sequence starts (" + $("#app .compare > p.small").textContent + ")");
+        var blind = $("#c-blind"); blind.click();
+        check(/Voice [AB]/.test($("#app .compare-queue").textContent), "blind mode hides names");
+        visit("#/voices?engine=edge-tts", [[".sample-row", 3]]);
+      } else if (none) {
+        visit("#/voices", [[".notice", "+"], [".engine-card", 0]]);
+      } else {
+        visit("#/voices", [[".page", 1]]);
+        if (VG.engines && VG.engines.length) check(count(".engine-card") === VG.engines.length, "real data: one card per engine (" + VG.engines.length + ")");
+        if (VG.voices && VG.voices.length) check(count(".sample-row") === VG.voices.filter(function (v) { return v.file; }).length, "real data: one row per voice (" + VG.voices.length + ")");
+        if (VG.engines) {
+          var withDemo = VG.engines.filter(function (e) { return e.demoUrl; }).length;
+          check(count(".engine-card a[href^='http'][target=_blank]") >= withDemo, "real data: engines with demoUrl show an official-samples link (" + withDemo + ")");
+        }
+        var rows = $$("#app .sample-row").map(function (r) { return r.getAttribute("data-voice"); });
+        if (rows.indexOf("clone-reference") >= 0) {
+          var cb0 = rows.filter(function (id) { return /^(clone-reference|chatterbox-)/.test(id); });
+          check(cb0[0] === "clone-reference", "real data: cloning reference is first in its group (" + cb0.slice(0, 3).join(", ") + ")");
+        }
+        var ai = rows.indexOf("edge-en-us-aria-en");
+        if (ai >= 0 && rows.indexOf("edge-en-us-aria-en-fast") >= 0) check(rows[ai + 1] === "edge-en-us-aria-en-fast", "real data: aria fast variant sits next to aria");
+        check(!/[A-Z]{3,} MORE/.test($("#app").textContent), "real data: free-text language items not upper-cased as codes");
+      }
+
+      visit("#/best-voices", [[".place-card", 5], [".place-card.start", 1], [".judge-list li", 8], ["a[href='#/guide/narration']", "+"], ["a[target=_blank][rel*=noopener]", "+"]]);
+
+      // animations
+      if (fx) {
+        visit("#/animations", [[".tool-card", 3], ["table.data tbody tr", 3]]);
+        visit("#/animations/manim", [["video", 1], [".source-viewer", 1], [".video-frame", 1]]);
+        var det = $("#app .source-viewer"); det.open = true; det.dispatchEvent(new Event("toggle"));
+        await sleep(800);
+        var gh = $("#app .source-viewer a[href^='https://github.com/avielraz123/video-making-guide/blob/main/tests/fixtures/sample_scene.py']");
+        var code = $("#app .source-viewer .tok-kw");
+        check(gh || code, "source viewer shows code or GitHub fallback (" + (code ? "code" : gh ? "github link" : "nothing") + ")");
+        visit("#/animations/remotion", [[".video-frame.portrait", 1]]);
+        visit("#/animations/blender", [[".notice", 1], ["a[href='https://example.com/examples']", "+"]]);
+        visit("#/animations/nope", [[".notice", 1]]);
+      } else if (none) {
+        visit("#/animations", [[".notice", 1], [".tool-card", 0]]);
+        visit("#/animations/manim", [[".notice", 1]]);
+      } else {
+        visit("#/animations", [[".page", 1]]);
+        for (var ti = 0; ti < (VG.animTools || []).length; ti++) {
+          var t = VG.animTools[ti], demos = t.demos || [];
+          visit("#/animations/" + t.id, [[".tool-detail-head", 1], [".demo-card", demos.length]]);
+          if (t.note) check(count(".callout.warn") >= 1, t.id + ": tool note shown as a callout");
+          if (!demos.length) check(count(".notice") === 1, t.id + ": no-demo notice shown");
+          var withExtra = demos.filter(function (d) { return d.extraSources && d.extraSources.length; });
+          if (withExtra.length) {
+            var d0 = withExtra[0], sv = $("#demo-" + d0.id + " .source-viewer");
+            sv.open = true; sv.dispatchEvent(new Event("toggle"));
+            check($$("#demo-" + d0.id + " .src-tabs button").length === d0.extraSources.length + 1, t.id + ": source tabs for main + extra files");
+            await sleep(600);
+            var tabBtns = $$("#demo-" + d0.id + " .src-tabs button");
+            tabBtns[tabBtns.length - 1].click();
+            await sleep(600);
+            var panelText = $("#demo-" + d0.id + " .src-panel").textContent;
+            check(location.protocol === "file:" ? /github\.com|GitHub/.test($("#demo-" + d0.id + " .src-panel").innerHTML) : panelText.length > 40 && !/Couldn't load/.test(panelText), t.id + ": extra source file loads (" + (location.protocol === "file:" ? "GitHub fallback" : "fetched") + ")");
+          }
+          if (location.protocol !== "file:" && demos.length) {
+            var sv2 = $("#demo-" + demos[0].id + " .source-viewer");
+            if (!sv2.open) { sv2.open = true; sv2.dispatchEvent(new Event("toggle")); }
+            await sleep(600);
+            check(!!$("#demo-" + demos[0].id + " .source-viewer pre code") && !/Couldn't load/.test(sv2.textContent), t.id + ": main source " + demos[0].source + " loads over http");
+          }
+        }
+        var narrated = [];
+        (VG.animTools || []).forEach(function (t) { (t.demos || []).forEach(function (d) { if (/\bhas sound\b/i.test(d.description || "") || d.hasAudio) narrated.push(t.id + "/" + d.id); }); });
+        check(true, "demos detected with narration: " + (narrated.join(", ") || "none"));
+      }
+
+      // playground
+      visit("#/playground", [[".demo", 7], [".demo .notice", 0]]);
+      $$("#app .demo .btn-primary").forEach(function (b) { b.click(); });
+      $$("#app .demo .seg button").forEach(function (b) { b.click(); });
+      $$("#app .demo select").forEach(function (s) { if (s.options.length > 1) { s.selectedIndex = s.options.length - 1; s.dispatchEvent(new Event("change")); } });
+      $$("#app .demo input[type=checkbox]").forEach(function (c) { c.click(); });
+      $$("#app .demo .btn-primary").forEach(function (b) { b.click(); });
+      await sleep(2500);
+      var kt = $("#kt-text"); kt.value = "Hello *world* again."; kt.dispatchEvent(new Event("input"));
+      check(/Hello/.test($("#app .kt-text").textContent), "kinetic type shows typed text");
+      check(/Readability: \d \/ 6/.test($("#app .cap-stage").parentNode.textContent), "caption checklist renders a score");
+      var hl = VG.highlight("def f(x):\n    return 'a' # c", "python");
+      check(/tok-kw/.test(hl) && /tok-str/.test(hl) && /tok-com/.test(hl), "highlighter marks keywords, strings, comments");
+      check(/tok-tag/.test(VG.highlight("<AbsoluteFill style={{a: 1}}>", "tsx")), "highlighter marks JSX tags");
+      VG.app.render("#/playground/captions");
+      check(!!$("#demo-captions"), "playground deep link keeps page");
+
+      visit("#/claude", [[".wf-step", 9], [".prompt-pair", 9], [".cando li", "+"], [".tree", 1], [".copy-btn", "+"]]);
+      visit("#/does-not-exist", [[".notfound", 1]]);
+
+      // theme toggle
+      var t0 = VG.app.currentTheme(); $("#theme-toggle").click();
+      check(VG.app.currentTheme() !== t0, "theme toggle switches theme (" + t0 + " -> " + VG.app.currentTheme() + ")");
+      $("#theme-toggle").click();
+      // nav state
+      VG.app.render("#/voices");
+      check(($("a[data-nav=voices]") || {}).getAttribute && $("a[data-nav=voices]").getAttribute("aria-current") === "page", "nav marks current page");
+
+      await sleep(500);
+      check(errors.length === 0, "no JS errors overall" + (errors.length ? ": " + errors.join(" | ") : ""));
+      finish();
+    }
+    function finish() {
+      var failed = results.filter(function (r) { return !r.ok; }).length;
+      var s = document.getElementById("summary");
+      var status = failed ? "FAIL" : "PASS";
+      s.textContent = status + " (" + mode + "): " + (results.length - failed) + "/" + results.length + " checks passed";
+      s.setAttribute("data-status", status);
+      s.className = failed ? "fail" : "pass";
+      document.title = s.textContent;
+      VG.app && VG.app.render && VG.app.render("#/");
+    }
+  })();
+  </script>
+</body>
+</html>

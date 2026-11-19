@@ -1,0 +1,11 @@
+1
+00:00:00,600 --> 00:00:03,200
+Subtitles live in a plain .srt text file.
+
+2
+00:00:03,400 --> 00:00:06,200
+ffmpeg burns them into every frame.
+
+3
+00:00:06,400 --> 00:00:09,600
+The name card is drawbox + drawtext.

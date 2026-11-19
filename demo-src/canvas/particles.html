@@ -1,0 +1,86 @@
+<!doctype html>
+<!--
+  Particles that fly together to spell a word, drawn on a <canvas>.
+  Open it in a browser to watch it live, or let capture.mjs step through it
+  frame by frame. The key idea: drawFrame(n) draws frame n from scratch and
+  never reads the clock, so a recorder gets the same perfect frames every time.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; background: #0f1b33; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c" width="1280" height="720"></canvas>
+<script>
+const W = 1280, H = 720, FPS = 30, FRAMES = 8 * FPS;
+const WORD = "VIDEO";
+const ctx = document.getElementById("c").getContext("2d");
+
+// Seeded random numbers, so every run (and every recording) is identical.
+let seed = 42;
+const rand = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296);
+
+// 1) Find target points: draw the word on a hidden canvas and sample its pixels.
+const off = document.createElement("canvas");
+off.width = W; off.height = H;
+const o = off.getContext("2d");
+o.font = "900 300px 'Segoe UI', Arial, sans-serif";
+o.textAlign = "center"; o.textBaseline = "middle";
+o.fillText(WORD, W / 2, H / 2);
+const pixels = o.getImageData(0, 0, W, H).data;
+const targets = [];
+for (let y = 0; y < H; y += 9)
+  for (let x = 0; x < W; x += 9)
+    if (pixels[(y * W + x) * 4 + 3] > 128) targets.push([x, y]);
+
+// 2) One particle per target, starting at a random spot with a random delay.
+const particles = targets.map(([tx, ty]) => ({
+  sx: rand() * W, sy: rand() * H,           // start
+  tx, ty,                                   // target (a pixel of the word)
+  delay: rand() * 0.35,                     // staggered arrival
+  amber: rand() < 0.35,                     // 35 % accent color
+}));
+
+const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3);
+const clamp01 = (t) => Math.min(1, Math.max(0, t));
+
+// 3) Draw frame n (0 .. FRAMES-1). Pure function of n.
+function drawFrame(n) {
+  const t = n / FPS;                         // seconds
+  ctx.fillStyle = "#0f1b33";
+  ctx.fillRect(0, 0, W, H);
+
+  for (const p of particles) {
+    // gather: 0.5 s -> 3.5 s (per-particle delay), scatter: after 6.8 s
+    const gather = easeOutCubic(clamp01((t - 0.5 - p.delay * 3) / 2));
+    const scatter = clamp01((t - 6.8) / 1.2) ** 2;
+    const wobble = 2 * Math.sin(t * 4 - p.tx / 60);  // a gentle wave across the word
+    let x = p.sx + (p.tx - p.sx) * gather + wobble;
+    let y = p.sy + (p.ty - p.sy) * gather + wobble * 0.6;
+    // scatter outward from the center
+    x += (p.tx - W / 2) * scatter * 2.5;
+    y += (p.ty - H / 2) * scatter * 2.5 - scatter * 120;
+
+    ctx.globalAlpha = 0.35 + 0.65 * gather * (1 - scatter);
+    ctx.fillStyle = p.amber ? "#ffb547" : "#e8eef8";
+    ctx.beginPath();
+    ctx.arc(x, y, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+// Live preview when opened normally; capture.mjs calls drawFrame itself.
+window.drawFrame = drawFrame;
+window.FRAMES = FRAMES;
+if (!location.search.includes("capture")) {
+  let n = 0;
+  (function loop() { drawFrame(n++ % FRAMES); requestAnimationFrame(loop); })();
+}
+</script>
+</body>
+</html>

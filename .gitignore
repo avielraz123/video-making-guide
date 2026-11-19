@@ -1,0 +1,9 @@
+node_modules/
+.venv/
+__pycache__/
+*.onnx
+*.bin
+models/
+demo-src/**/out/
+demo-src/**/media/
+.cache/

@@ -1,0 +1,3 @@
+# for narration/timestamps.py (tts.py needs kokoro-onnx + soundfile instead)
+faster-whisper
+numpy
